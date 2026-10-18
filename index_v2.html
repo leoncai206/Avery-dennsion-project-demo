@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Scheduling Optimizer | Simulated Annealing</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #a5b4fc;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --bg-input: rgba(51, 65, 85, 0.5);
+            --border: rgba(148, 163, 184, 0.1);
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background Grid */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Gradient Orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            top: -200px;
+            right: -200px;
+        }
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(135deg, var(--accent), var(--success));
+            bottom: -150px;
+            left: -150px;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 12px;
+            padding: 20px;
+        }
+        .header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        .header-subtitle {
+            font-size: 15px;
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        .header-badge {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 5px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        /* Left Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 2px;
+        }
+
+        /* Preset Grid */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .preset-btn {
+            padding: 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+        }
+        .preset-btn:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+        .preset-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-color: var(--primary);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+        }
+        .preset-title {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 4px;
+            color: var(--text);
+        }
+        .preset-desc {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Weight Sliders */
+        .weight-item {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        .weight-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+        }
+        .weight-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .weight-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .weight-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+            text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+        }
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 3px;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+            transition: transform 0.2s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .run-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+            letter-spacing: 0.5px;
+        }
+        .run-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+        }
+        .run-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* KPI Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 14px;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+        }
+        .kpi-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        .kpi-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 26px;
+            font-weight: 700;
+        }
+        .kpi-detail {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .kpi-success { color: var(--success); text-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+        .kpi-warning { color: var(--warning); text-shadow: 0 0 15px rgba(245, 158, 11, 0.4); }
+        .kpi-danger { color: var(--danger); text-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        .chart-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+        }
+        .chart-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+        .chart-container {
+            height: 200px;
+        }
+
+        /* Table */
+        .table-panel {
+            flex: 1;
+            min-height: 400px;
+        }
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .schedule-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .schedule-table th {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+            border-bottom: 2px solid var(--primary);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .schedule-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+        .schedule-table tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        /* Batch group colors */
+        .batch-group-0 { background: rgba(99, 102, 241, 0.05); }
+        .batch-group-1 { background: rgba(6, 182, 212, 0.05); }
+        .batch-group-2 { background: rgba(16, 185, 129, 0.05); }
+        .batch-group-3 { background: rgba(245, 158, 11, 0.05); }
+        .batch-group-4 { background: rgba(236, 72, 153, 0.05); }
+
+        .batch-group-0:hover { background: rgba(99, 102, 241, 0.1); }
+        .batch-group-1:hover { background: rgba(6, 182, 212, 0.1); }
+        .batch-group-2:hover { background: rgba(16, 185, 129, 0.1); }
+        .batch-group-3:hover { background: rgba(245, 158, 11, 0.1); }
+        .batch-group-4:hover { background: rgba(236, 72, 153, 0.1); }
+
+        /* Subtotal row */
+        .subtotal-row {
+            background: rgba(148, 163, 184, 0.1) !important;
+            font-weight: 600;
+        }
+        .subtotal-row:hover {
+            background: rgba(148, 163, 184, 0.15) !important;
+        }
+
+        /* Setup row */
+        .setup-row {
+            background: rgba(245, 158, 11, 0.05) !important;
+            font-style: italic;
+        }
+        .setup-row:hover {
+            background: rgba(245, 158, 11, 0.1) !important;
+        }
+
+        .product-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .batch-suffix {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.3px;
+        }
+        .badge-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1200px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+            .preset-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+            .kpi-grid {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: auto;
+            }
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .header h1 { font-size: 24px; }
+            .preset-grid { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <div class="app-container">
+        <header class="header">
+            <h1>Production Scheduling Optimizer</h1>
+            <p class="header-subtitle">Multi-Objective Optimization with Simulated Annealing Algorithm</p>
+            <div class="header-badge">Line-02 | 15 Batches | 6 Days</div>
+        </header>
+
+        <!-- Left Sidebar -->
+        <aside class="sidebar">
+            <div class="panel">
+                <div class="section-title">Objective Weights</div>
+
+                <div class="preset-grid">
+                    <button class="preset-btn active" onclick="applyPreset('balanced')">
+                        <div class="preset-title">⚖️ Balanced</div>
+                        <div class="preset-desc">35% | 45% | 20%</div>
+                    </button>
+                    <button class="preset-btn" onclick="applyPreset('delivery')">
+                        <div class="preset-title">📦 Delivery</div>
+                        <div class="preset-desc">20% | 60% | 20%</div>
+                    </button>
+                    <button class="preset-btn" onclick="applyPreset('energy')">
+                        <div class="preset-title">⚡ Energy</div>
+                        <div class="preset-desc">50% | 30% | 20%</div>
+                    </button>
+                    <button class="preset-btn" onclick="applyPreset('setup')">
+                        <div class="preset-title">🔄 Setup</div>
+                        <div class="preset-desc">20% | 30% | 50%</div>
+                    </button>
+                </div>
+
+                <div class="weight-item">
+                    <div class="weight-header">
+                        <span class="weight-name">⚡ Energy</span>
+                        <span class="weight-value" id="energyValue">35%</span>
+                    </div>
+                    <input type="range" id="energySlider" min="0" max="100" value="35" oninput="updateWeights()">
+                </div>
+
+                <div class="weight-item">
+                    <div class="weight-header">
+                        <span class="weight-name">📦 Delivery</span>
+                        <span class="weight-value" id="deliveryValue">45%</span>
+                    </div>
+                    <input type="range" id="deliverySlider" min="0" max="100" value="45" oninput="updateWeights()">
+                </div>
+
+                <div class="weight-item">
+                    <div class="weight-header">
+                        <span class="weight-name">🔄 Setup</span>
+                        <span class="weight-value" id="setupValue">20%</span>
+                    </div>
+                    <input type="range" id="setupSlider" min="0" max="100" value="20" oninput="updateWeights()">
+                </div>
+
+                <button class="run-btn" id="runBtn" onclick="runOptimization()">▶ Start Optimization</button>
+            </div>
+
+            <!-- Charts in Sidebar -->
+            <div id="resultsContainer" style="display: none;">
+                <div class="panel" style="padding: 18px;">
+                    <div class="section-title" style="font-size: 14px;">Cost Breakdown</div>
+                    <div class="chart-container" style="height: 180px;">
+                        <canvas id="costChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel" style="padding: 18px;">
+                    <div class="section-title" style="font-size: 14px;">Shift Distribution</div>
+                    <div class="chart-container" style="height: 180px;">
+                        <canvas id="shiftChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- KPI Cards -->
+            <div id="kpiGrid" class="kpi-grid"></div>
+
+            <!-- Table -->
+            <div class="panel table-panel" id="tablePanel" style="display: none;">
+                <div class="section-title">Scheduling Details</div>
+                <div style="max-height: 500px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--border);">
+                    <table class="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Product</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Dur.</th>
+                                <th>Shift</th>
+                                <th>Rate</th>
+                                <th>Price</th>
+                                <th>Cost</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="loading" style="display: none;">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Running Simulated Annealing...</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="optimizer_sa_en.js"></script>
+    <script>
+        let scheduler;
+        let currentWeights = { energy: 35, delivery: 45, setup: 20 };
+        let costChartInstance = null;
+        let shiftChartInstance = null;
+
+        const PRESETS = {
+            balanced: { energy: 35, delivery: 45, setup: 20 },
+            delivery: { energy: 20, delivery: 60, setup: 20 },
+            energy: { energy: 50, delivery: 30, setup: 20 },
+            setup: { energy: 20, delivery: 30, setup: 50 }
+        };
+
+        function init() {
+            scheduler = new SimulatedAnnealingScheduler();
+            updateWeights();
+        }
+
+        function applyPreset(name) {
+            const p = PRESETS[name];
+            document.getElementById('energySlider').value = p.energy;
+            document.getElementById('deliverySlider').value = p.delivery;
+            document.getElementById('setupSlider').value = p.setup;
+            updateWeights();
+            document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.preset-btn').classList.add('active');
+        }
+
+        function updateWeights() {
+            const e = parseInt(document.getElementById('energySlider').value);
+            const d = parseInt(document.getElementById('deliverySlider').value);
+            const s = parseInt(document.getElementById('setupSlider').value);
+            const total = e + d + s;
+            if (total !== 100) {
+                const f = 100 / total;
+                currentWeights.energy = Math.round(e * f);
+                currentWeights.delivery = Math.round(d * f);
+                currentWeights.setup = 100 - currentWeights.energy - currentWeights.delivery;
+            } else {
+                currentWeights = { energy: e, delivery: d, setup: s };
+            }
+            document.getElementById('energyValue').textContent = currentWeights.energy + '%';
+            document.getElementById('deliveryValue').textContent = currentWeights.delivery + '%';
+            document.getElementById('setupValue').textContent = currentWeights.setup + '%';
+        }
+
+        function runOptimization() {
+            document.getElementById('runBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('kpiGrid').innerHTML = '';
+            document.getElementById('tablePanel').style.display = 'none';
+            document.getElementById('resultsContainer').style.display = 'none';
+
+            setTimeout(() => {
+                try {
+                    scheduler.weights = {
+                        energy: currentWeights.energy / 100,
+                        delivery: currentWeights.delivery / 100,
+                        setup: currentWeights.setup / 100
+                    };
+
+                    const results = scheduler.optimize();
+                    const kpis = scheduler.calculateKPIs(results);
+                    const oee = scheduler.calculateOEE(results);
+
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('resultsContainer').style.display = 'block';
+                    document.getElementById('tablePanel').style.display = 'block';
+
+                    renderKPIs(kpis, oee);
+                    renderCharts(results);
+                    renderTable(results);
+                } catch (err) {
+                    console.error(err);
+                    alert('Optimization failed: ' + err.message);
+                    document.getElementById('loading').style.display = 'none';
+                } finally {
+                    document.getElementById('runBtn').disabled = false;
+                }
+            }, 100);
+        }
+
+        function renderKPIs(kpis, oee) {
+            document.getElementById('kpiGrid').innerHTML = `
+                <div class="kpi-card">
+                    <div class="kpi-label">Energy Cost</div>
+                    <div class="kpi-value kpi-warning">$${kpis.totalEnergyCost}</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Setup Time</div>
+                    <div class="kpi-value">${kpis.totalSetupTime}h</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Setup Cost</div>
+                    <div class="kpi-value kpi-warning">$${kpis.totalSetupCost}</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">On-Time Rate</div>
+                    <div class="kpi-value ${kpis.onTimeRate >= 95 ? 'kpi-success' : 'kpi-danger'}">${kpis.onTimeRate}%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Valley Shift</div>
+                    <div class="kpi-value kpi-success">${kpis.valleyRate}%</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">OEE</div>
+                    <div class="kpi-value ${oee.oee >= 75 ? 'kpi-success' : oee.oee >= 60 ? 'kpi-warning' : 'kpi-danger'}">${oee.oee}%</div>
+                    <div class="kpi-detail">A:${oee.availability}% P:${oee.performance}% Q:${oee.quality}%</div>
+                </div>
+            `;
+        }
+
+        function renderCharts(results) {
+            const setupRows = results.filter(r => r.type === 'setup');
+            const subtotalRows = results.filter(r => r.type === 'subtotal');
+            const productionRows = results.filter(r => r.type === 'production');
+
+            const setupCost = setupRows.reduce((sum, r) => sum + (r.setupCost || 0), 0);
+
+            let energyCost = 0;
+            if (subtotalRows.length > 0) {
+                energyCost = subtotalRows.reduce((sum, r) => sum + (r.energyCost || 0), 0);
+            } else {
+                const batchGroups = new Map();
+                productionRows.forEach(r => {
+                    if (!batchGroups.has(r.batchGroupId)) {
+                        batchGroups.set(r.batchGroupId, r);
+                    }
+                });
+                energyCost = Array.from(batchGroups.values()).reduce((sum, r) => sum + (r.energyCost || 0), 0);
+            }
+
+            const delayPenalty = 0;
+
+            if (costChartInstance) costChartInstance.destroy();
+            if (shiftChartInstance) shiftChartInstance.destroy();
+
+            costChartInstance = new Chart(document.getElementById('costChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Energy', 'Setup', 'Delay'],
+                    datasets: [{
+                        data: [energyCost, setupCost, delayPenalty],
+                        backgroundColor: ['#f59e0b', '#6366f1', '#ef4444'],
+                        borderColor: '#1e293b',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#f1f5f9', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+
+            const peak = productionRows.filter(r => r.shiftType === 'peak').length;
+            const flat = productionRows.filter(r => r.shiftType === 'flat').length;
+            const valley = productionRows.filter(r => r.shiftType === 'valley').length;
+
+            shiftChartInstance = new Chart(document.getElementById('shiftChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Peak', 'Flat', 'Valley'],
+                    datasets: [{
+                        data: [peak, flat, valley],
+                        backgroundColor: ['rgba(239, 68, 68, 0.5)', 'rgba(245, 158, 11, 0.5)', 'rgba(16, 185, 129, 0.5)'],
+                        borderColor: ['#ef4444', '#f59e0b', '#10b981'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.1)' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.1)' } }
+                    }
+                }
+            });
+        }
+
+        function renderTable(results) {
+            const batchGroups = {};
+            let groupIndex = 0;
+
+            results.forEach(r => {
+                if (r.batchGroupId && !batchGroups[r.batchGroupId]) {
+                    batchGroups[r.batchGroupId] = groupIndex % 5;
+                    groupIndex++;
+                }
+            });
+
+            document.getElementById('scheduleBody').innerHTML = results.map(r => {
+                if (r.type === 'setup') {
+                    return `
+                        <tr class="setup-row" style="background: rgba(148, 163, 184, 0.1);">
+                            <td style="text-align: center; font-family: 'JetBrains Mono', monospace; color: var(--text-muted);">${r.sequenceDisplay}</td>
+                            <td colspan="3" style="font-style: italic; color: var(--warning);">
+                                <strong>Setup:</strong> ${r.productName}
+                                <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">
+                                    🌡️${r.temperatureTime}h 🧹${r.cleaningTime}h 📦${r.materialTime}h ⚙️${r.adjustmentTime}h ✅${r.qualityTime}h
+                                </div>
+                            </td>
+                            <td style="font-family: 'JetBrains Mono', monospace; text-align: center;">${r.durationHours}</td>
+                            <td colspan="2" style="text-align: right; color: var(--text-muted);">Cost:</td>
+                            <td colspan="2" style="font-family: 'JetBrains Mono', monospace; text-align: right; font-weight: 700; color: var(--warning);">$${r.setupCost.toFixed(0)}</td>
+                            <td><span class="badge badge-warning">${r.setupType}</span></td>
+                        </tr>
+                    `;
+                }
+
+                if (r.type === 'subtotal') {
+                    return `
+                        <tr class="subtotal-row">
+                            <td style="text-align: center; font-family: 'JetBrains Mono', monospace;">${r.sequenceDisplay}</td>
+                            <td colspan="3" style="font-style: italic; color: var(--text-muted);">${r.productName}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; text-align: center; font-weight: 700;">${r.durationHours}</td>
+                            <td colspan="3" style="text-align: right; color: var(--text-muted);">Total:</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; text-align: right; font-weight: 700; color: var(--accent);">$${r.energyCost.toFixed(0)}</td>
+                            <td><span class="badge ${r.isDelayed ? 'badge-danger' : 'badge-success'}">${r.isDelayed ? 'Delayed' : 'On-Time'}</span></td>
+                        </tr>
+                    `;
+                }
+
+                if (r.type === 'production') {
+                    const groupClass = `batch-group-${batchGroups[r.batchGroupId] || 0}`;
+                    const suffix = r.isSubRow ? `<span class="batch-suffix">${r.sequenceDisplay.slice(-1)}</span>` : '';
+
+                    return `
+                        <tr class="${groupClass}">
+                            <td style="text-align: center; font-family: 'JetBrains Mono', monospace;">${r.sequenceDisplay}${suffix}</td>
+                            <td>
+                                <span class="product-id">${r.productId}</span> ${r.productName}
+                                <span style="color: var(--text-muted); font-size: 10px;"> (${r.batchNumber})</span>
+                            </td>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">${r.startTime}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">${r.endTime}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; text-align: center;">${r.durationHours}</td>
+                            <td style="text-align: center;">
+                                <span class="badge badge-${r.shiftType === 'valley' ? 'success' : r.shiftType === 'peak' ? 'danger' : 'warning'}">${r.shift}</span>
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="badge ${parseFloat(r.energyRate) >= 72 ? 'badge-danger' : parseFloat(r.energyRate) >= 48 ? 'badge-warning' : 'badge-success'}">${r.energyRate}</span>
+                            </td>
+                            <td style="font-family: 'JetBrains Mono', monospace; text-align: center; color: ${r.price <= 0.25 ? 'var(--success)' : r.price >= 0.45 ? 'var(--danger)' : 'var(--warning)'};">$${r.price.toFixed(2)}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; text-align: right;">$${r.energyCost.toFixed(1)}</td>
+                            <td><span class="badge ${r.isDelayed ? 'badge-danger' : 'badge-success'}">${r.isDelayed ? 'Delayed' : 'On-Time'}</span></td>
+                        </tr>
+                    `;
+                }
+
+                return '';
+            }).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
