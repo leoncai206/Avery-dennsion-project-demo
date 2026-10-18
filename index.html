@@ -351,9 +351,11 @@
             color: var(--text);
         }
         .chart-container {
-            height: 200px;
+            height: 500px;
         }
-
+        #resultsContainer .panel + .panel {
+            margin-top: 20px;
+        }
         /* Table */
         .table-panel {
             flex: 1;
@@ -589,7 +591,7 @@
             <!-- Table -->
             <div class="panel table-panel" id="tablePanel" style="display: none;">
                 <div class="section-title">Scheduling Details</div>
-                <div style="max-height: 500px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--border);">
+                <div style="max-height: 800px; overflow-y: auto; border-radius: 10px; border: 1px solid var(--border);">
                     <table class="schedule-table">
                         <thead>
                             <tr>
